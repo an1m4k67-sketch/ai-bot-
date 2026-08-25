@@ -1,10 +1,27 @@
 import os
 import random
+import threading
+from flask import Flask
 import telebot
 
 TOKEN = "8281195682:AAETwI-pZwRAkUAF_tRZmaL_8dnxRokPLfw"
 bot = telebot.TeleBot(TOKEN)
 
+# 1. Поднимаем мини-сервер для Flask, чтобы Render не ругался на таймаут порта
+app = Flask(__name__)
+
+
+@app.route("/")
+def home():
+  return "Бот работает!"
+
+
+def run_flask():
+  port = int(os.environ.get("PORT", 10000))
+  app.run(host="0.0.0.0", port=port)
+
+
+# 2. Логика бота
 phrases = [
     (
         "Интересная мысль! С точки зрения логики, тут есть над чем подумать."
@@ -40,7 +57,12 @@ def handle_all(message):
 
 
 if __name__ == "__main__":
-  print("Бот запущен...")
+  # Запускаем Flask в отдельном потоке, чтобы он занимал порт для Render
+  t = threading.Thread(target=run_flask)
+  t.start()
+
+  print("Telegram-бот запущен...")
   bot.infinity_polling()
+
 
 
