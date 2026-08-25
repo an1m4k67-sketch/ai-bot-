@@ -1,19 +1,22 @@
 import os
-import random
 import threading
 from flask import Flask
+from google import genai
 import telebot
 
-TOKEN = "8281195682:AAETwI-pZwRAkUAF_tRZmaL_8dnxRokPLfw"
-bot = telebot.TeleBot(TOKEN)
+TELEGRAM_TOKEN = "8281195682:AAETwI-pZwRAkUAF_tRZmaL_8dnxRokPLfw"
+GEMINI_API_KEY = "AQ.Ab8RN6JMf0wmLjrFokiiBSnKqNenpzloIGMr1iqKkYyibVxxqw"
 
-# 1. Поднимаем мини-сервер для Flask, чтобы Render не ругался на таймаут порта
+bot = telebot.TeleBot(TELEGRAM_TOKEN)
+client = genai.Client(api_key=GEMINI_API_KEY)
+
+# Мини-веб-сервер для Render (чтобы держался порт)
 app = Flask(__name__)
 
 
 @app.route("/")
 def home():
-  return "Бот работает!"
+  return "ИИ-Бот с Gemini работает!"
 
 
 def run_flask():
@@ -21,48 +24,53 @@ def run_flask():
   app.run(host="0.0.0.0", port=port)
 
 
-# 2. Логика бота
-phrases = [
-    (
-        "Интересная мысль! С точки зрения логики, тут есть над чем подумать."
-    ),
-    (
-        "Я проанализировал то, что ты написал. Давай разберем это подробнее."
-    ),
-    (
-        "Абсолютно с тобой согласен. В таких вопросах нужен системный подход."
-    ),
-    "Любопытный вопрос! Могу предложить взглянуть на это под другим углом.",
-]
-
-
+# Логика общения через Gemini
 @bot.message_handler(commands=["start"])
 def send_welcome(message):
   bot.reply_to(
       message,
-      "Привет! 👋 Я твой обновленный ИИ-помощник. Готов общаться!",
+      "Привет! 👋 Теперь я подключен к полноценной нейросети Gemini."
+      " Задавай любые вопросы, пиши код или проси разобрать темы!",
   )
 
 
 @bot.message_handler(commands=["help"])
 def send_help(message):
-  bot.reply_to(message, "Просто напиши мне любой текст, и мы начнем диалог.")
+  bot.reply_to(
+      message,
+      "Я полностью автономен и использую ИИ. Просто отправь мне сообщение!",
+  )
 
 
 @bot.message_handler(func=lambda message: True)
-def handle_all(message):
+def handle_ai(message):
+  # Показываем статус «печатает...», пока модель думает
   bot.send_chat_action(message.chat.id, "typing")
-  reply = f"{random.choice(phrases)}\n\n(Твой текст: «{message.text}»)"
-  bot.reply_to(message, reply)
+
+  try:
+    # Запрос к модели Gemini 2.5 Flash
+    response = client.models.generate_content(
+        model="gemini-2.5-flash",
+        contents=message.text,
+    )
+    reply_text = response.text
+  except Exception as e:
+    reply_text = (
+        "⚠️ Произошла ошибка при обращении к нейросети. Попробуй еще раз чуть"
+        " позже."
+    )
+
+  bot.reply_to(message, reply_text)
 
 
 if __name__ == "__main__":
-  # Запускаем Flask в отдельном потоке, чтобы он занимал порт для Render
+  # Запускаем Flask в фоне
   t = threading.Thread(target=run_flask)
   t.start()
 
-  print("Telegram-бот запущен...")
+  print("Умный бот на базе Gemini запущен...")
   bot.infinity_polling()
+
 
 
 
